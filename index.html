@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defeat Anime RNG Stats Calculator</title>
+<style>
+:root{--bg:#14121f;--panel:#1e1b2e;--line:#352f52;--text:#ece9f7;--mute:#9a94b8;--accent:#ff5d8f;--accent2:#ffc857;--good:#5be0a4}
+@media (prefers-color-scheme:light){:root{--bg:#f6f4fb;--panel:#fff;--line:#d9d3ec;--text:#221d38;--mute:#675f88;--accent:#d92c6a;--accent2:#a86b00;--good:#0b8a58}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.5px}
+h1 span{color:var(--accent)}
+.sub{color:var(--mute);margin:0 0 24px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+h2{font-size:1.05rem;margin:0 0 12px}
+label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
+input,select{width:100%;padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;font:inherit}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acc{border-top:1px dashed var(--line);margin-top:14px;padding-top:6px}
+.acc h3{font-size:.95rem;margin:8px 0 0}
+.result{grid-column:1/-1}
+.big{display:flex;flex-wrap:wrap;gap:24px;margin-bottom:14px}
+.big div{min-width:150px}
+.big b{display:block;font-size:2.1rem;line-height:1.1;color:var(--accent2)}
+.big small{color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mute);font-weight:600}
+td:not(:first-child),th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.gain{color:var(--good)}
+.note{font-size:.82rem;color:var(--mute);margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Defeat Anime <span>RNG</span> Stats Calculator</h1>
+<p class="sub">Enter a unit's base stats, pick its accessories, and see its final damage and DPS.</p>
+
+<div class="grid">
+  <section>
+    <h2>Unit</h2>
+    <label for="dmg">Damage (you can use k, m, 1.5k or 2m)</label>
+    <input id="dmg" type="text" inputmode="text" autocomplete="off" value="1k" placeholder="e.g. 1.5k, 2m">
+    <label for="spa">SPA (cooldown, seconds)</label>
+    <input id="spa" type="number" min="0.01" step="any" value="2">
+    <div class="row">
+      <div><label for="cc">Crit chance (%)</label><input id="cc" type="number" min="0" step="any" value="5"></div>
+      <div><label for="cd">Crit damage (%)</label><input id="cd" type="number" min="0" step="any" value="50"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Accessories</h2>
+    <div id="accs"></div>
+  </section>
+
+  <section class="result">
+    <h2>Result</h2>
+    <div class="big">
+      <div><b id="rDps">0</b><small>DPS (may be slightly inaccurate, the game rounds the numbers)</small></div>
+      <div><b id="rCrit">0</b><small>DPS with average crits</small></div>
+      <div><b id="rAvg">0</b><small>Average damage per hit</small></div>
+      <div><b id="rGain">0%</b><small>DPS vs. no accessories</small></div>
+    </div>
+    <table>
+      <thead><tr><th>Stat</th><th>Base</th><th>Final</th></tr></thead>
+      <tbody id="tbl"></tbody>
+    </table>
+  </section>
+</div>
+</main>
+
+<script>
+const MAIN = {none:"None", critDmg:"Crit Damage", cdr:"Cooldown Reduction", dmgBuff:"Damage Buff"};
+const SUB  = {none:"None", critChance:"Crit Chance", abilityCdr:"Ability CD Reduction", dotBuff:"DOT Damage Buff"};
+const SLOTS = 2;
+const SLOT_NAMES = ["Top accessory","Bottom accessory"];
+const $ = id => document.getElementById(id);
+
+function opts(obj){return Object.entries(obj).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
+function stars(){return [0,1,2,3].map(n=>`<option value="${n}">${n?n+" Star"+(n>1?"s ("+n*5+"%)":" (5%)"):"-"}</option>`).join("")}
+
+// Build UI
+let html = "";
+for(let i=0;i<SLOTS;i++){
+  html += `<div class="acc"><h3>${SLOT_NAMES[i]}</h3>
+  <div class="row">
+    <div><label>Main stat</label><select id="m${i}">${opts(MAIN)}</select></div>
+    <div><label>Stars</label><select id="ms${i}">${stars()}</select></div>
+  </div>
+  <div class="row">
+    <div><label>Sub stat</label><select id="s${i}">${opts(SUB)}</select></div>
+    <div><label>Stars</label><select id="ss${i}">${stars()}</select></div>
+  </div></div>`;
+}
+$("accs").innerHTML = html;
+
+const fmt = (n,d=2) => Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+// Format big numbers with k/m/b/t
+function fmtBig(n){
+  const a=Math.abs(n);
+  const u=[[1e12,"t"],[1e9,"b"],[1e6,"m"],[1e3,"k"]];
+  for(const [v,x] of u) if(a>=v) return fmt(n/v,2)+x;
+  return fmt(n,2);
+}
+// Parse numbers like 1.5k, 2m, 3b, 1,000
+function parseNum(str){
+  const m=String(str).trim().toLowerCase().replace(/[,\s]/g,"").match(/^(\d*\.?\d+)([kmbt]?)$/);
+  if(!m) return NaN;
+  const mult={"":1,k:1e3,m:1e6,b:1e9,t:1e12}[m[2]];
+  return parseFloat(m[1])*mult;
+}
+
+function computeDps(dmg,spa,cc,cd,mode){
+  const critMult = mode==="bonus" ? 1+cd/100 : cd/100;
+  const chance = Math.min(Math.max(cc,0),100)/100;
+  const avg = dmg*(1+chance*(critMult-1));
+  return {avg, dps: spa>0 ? dmg/spa : 0, critDps: spa>0 ? avg/spa : 0, critMult};
+}
+
+function calc(){
+  const parsed = parseNum($("dmg").value);
+  $("dmg").style.borderColor = isNaN(parsed) ? "var(--accent)" : "";
+  const baseDmg = isNaN(parsed) ? 0 : parsed, baseSpa = +$("spa").value||0.01;
+  const baseCc = +$("cc").value||0, baseCd = +$("cd").value||0;
+  const mode = "bonus"; // crit damage % is a bonus: 50% = crits hit x1.5
+
+  // Sum accessories
+  const t = {critDmg:0,cdr:0,dmgBuff:0,critChance:0,abilityCdr:0,dotBuff:0};
+  for(let i=0;i<SLOTS;i++){
+    const m=$("m"+i).value, ms=+$("ms"+i).value, s=$("s"+i).value, ss=+$("ss"+i).value;
+    if(m!=="none") t[m]+=ms*5;
+    if(s!=="none") t[s]+=ss*5;
+  }
+
+  const finalDmg = baseDmg*(1+t.dmgBuff/100);
+  const totalCdr = Math.min(t.cdr,90);
+  const finalSpa = baseSpa*(1-totalCdr/100);
+  const finalCc = Math.min(baseCc+t.critChance,100);
+  const finalCd = baseCd+t.critDmg;
+  const abilityCdr = t.abilityCdr;
+
+  const base = computeDps(baseDmg,baseSpa,baseCc,baseCd,mode);
+  const fin  = computeDps(finalDmg,finalSpa,finalCc,finalCd,mode);
+
+  $("rDps").textContent = fmtBig(fin.dps);
+  $("rAvg").textContent = fmtBig(fin.avg);
+  $("rCrit").textContent = fmtBig(fin.critDps);
+  const gain = base.dps>0 ? (fin.dps/base.dps-1)*100 : 0;
+  $("rGain").textContent = (gain>=0?"+":"")+fmt(gain,1)+"%";
+
+  const rows = [
+    ["Damage", fmtBig(baseDmg), fmtBig(finalDmg)],
+    ["SPA (seconds)", fmt(baseSpa,3), fmt(finalSpa,3)],
+    ["Crit chance", fmt(baseCc)+"%", fmt(finalCc)+"%"],
+    ["Crit damage", fmt(baseCd)+"%", fmt(finalCd)+"%"],
+    ["Avg damage per hit", fmtBig(base.avg), fmtBig(fin.avg)],
+    ["DPS (in-game, no crits)", fmtBig(base.dps), `<span class="gain">${fmtBig(fin.dps)}</span>`],
+    ["DPS with average crits", fmtBig(base.critDps), fmtBig(fin.critDps)],
+    ["Ability CD Reduction", "0%", fmt(abilityCdr)+"%"],
+    ["DOT Damage Buff", "0%", fmt(t.dotBuff)+"%"]
+  ];
+  $("tbl").innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("");
+
+}
+
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",calc));
+calc();
+</script>
+</body>
+</html>
