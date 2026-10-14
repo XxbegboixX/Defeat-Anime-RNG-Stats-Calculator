@@ -3,43 +3,67 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Defeat Anime RNG Stats Calculator</title>
+<title>DAR RNG Stats Calculator</title>
 <style>
-:root{--bg:#14121f;--panel:#1e1b2e;--line:#352f52;--text:#ece9f7;--mute:#9a94b8;--accent:#ff5d8f;--accent2:#ffc857;--good:#5be0a4}
-@media (prefers-color-scheme:light){:root{--bg:#f6f4fb;--panel:#fff;--line:#d9d3ec;--text:#221d38;--mute:#675f88;--accent:#d92c6a;--accent2:#a86b00;--good:#0b8a58}}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+:root{--bg:#0b0816;--panel:#150f2a;--line:#3a2d66;--text:#f1edff;--mute:#a79fc9;--accent:#ff4d8d;--accent2:#ffd166;--cyan:#4de1ff;--good:#5bf0b0;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
-main{max-width:980px;margin:0 auto;padding:24px 16px 48px}
-h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.5px}
-h1 span{color:var(--accent)}
-.sub{color:var(--mute);margin:0 0 24px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+body{margin:0;color:var(--text);font:16px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif;min-height:100vh;
+background:radial-gradient(1100px 600px at 10% -10%,#40156e 0%,transparent 60%),radial-gradient(900px 600px at 100% 10%,#0e3b6b 0%,transparent 55%),var(--bg);background-attachment:fixed}
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+main{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:28px 16px 56px}
+h1{font-size:clamp(1.9rem,6vw,3rem);margin:0 0 6px;letter-spacing:-1px;text-align:center;font-weight:900;
+background:linear-gradient(90deg,var(--accent),var(--accent2),var(--cyan),var(--accent));background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+animation:flow 6s linear infinite,drop .9s cubic-bezier(.2,.8,.2,1) backwards;filter:drop-shadow(0 0 16px rgba(255,77,141,.45))}
+h1 span{color:inherit}
+.sub{color:var(--mute);margin:0 0 28px;text-align:center;animation:drop 1s .15s cubic-bezier(.2,.8,.2,1) backwards}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media (max-width:760px){.grid{grid-template-columns:1fr}}
-section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
-h2{font-size:1.05rem;margin:0 0 12px}
+section{border:1.5px solid transparent;border-radius:14px;padding:18px;
+background:linear-gradient(var(--panel),var(--panel)) padding-box,conic-gradient(from var(--a),var(--accent),var(--cyan),var(--accent2),var(--accent)) border-box;
+box-shadow:0 12px 40px rgba(120,40,200,.25);transition:transform .25s,box-shadow .25s;
+animation:spin 7s linear infinite,rise .8s cubic-bezier(.2,.8,.2,1) backwards}
+section:nth-child(2){animation-delay:0s,.12s}
+section:nth-child(3){animation-delay:0s,.24s}
+section:hover{transform:translateY(-4px);box-shadow:0 18px 50px rgba(255,77,141,.28)}
+h2{font-size:1.1rem;margin:0 0 12px;text-transform:uppercase;letter-spacing:2px;color:var(--cyan);text-shadow:0 0 12px rgba(77,225,255,.6)}
 label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
-input,select{width:100%;padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;font:inherit}
-input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+input,select{width:100%;padding:9px 11px;background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--line);border-radius:8px;font:inherit;transition:border-color .2s,box-shadow .2s,background .2s}
+input:hover,select:hover{border-color:var(--accent)}
+input:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(77,225,255,.25),0 0 18px rgba(77,225,255,.35);background:rgba(255,255,255,.08)}
+option{background:#1a1432;color:var(--text)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .acc{border-top:1px dashed var(--line);margin-top:14px;padding-top:6px}
-.acc h3{font-size:.95rem;margin:8px 0 0}
+.acc h3{font-size:.95rem;margin:8px 0 0;color:var(--accent2)}
+.acc h3::before{content:"";display:inline-block;width:9px;height:9px;margin-right:8px;border-radius:50%;background:var(--accent2);box-shadow:0 0 10px var(--accent2);animation:blink 2s ease-in-out infinite}
 .result{grid-column:1/-1}
-.big{display:flex;flex-wrap:wrap;gap:24px;margin-bottom:14px}
-.big div{min-width:150px}
-.big b{display:block;font-size:2.1rem;line-height:1.1;color:var(--accent2)}
+.big{display:flex;flex-wrap:wrap;gap:12px 32px;margin-bottom:16px}
+.big div{min-width:150px;flex:1}
+.big b{display:block;font-size:clamp(1.8rem,5vw,2.5rem);line-height:1.15;font-weight:900;font-variant-numeric:tabular-nums;
+background:linear-gradient(90deg,var(--accent2),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent;animation:pulse 3s ease-in-out infinite}
+.big div:first-child b{background-image:linear-gradient(90deg,var(--accent2),var(--good))}
 .big small{color:var(--mute)}
 table{width:100%;border-collapse:collapse;font-size:.95rem}
-td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;transition:background .2s}
 th{color:var(--mute);font-weight:600}
 td:not(:first-child),th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
-.gain{color:var(--good)}
+tbody tr:hover td{background:rgba(255,255,255,.07)}
+.gain{color:var(--good);text-shadow:0 0 10px rgba(91,240,176,.6);font-weight:700}
 .note{font-size:.82rem;color:var(--mute);margin-top:14px}
+@keyframes spin{to{--a:360deg}}
+@keyframes flow{to{background-position:300% 0}}
+@keyframes rise{from{opacity:0;transform:translateY(30px) scale(.97)}}
+@keyframes drop{from{opacity:0;transform:translateY(-20px)}}
+@keyframes pulse{50%{filter:drop-shadow(0 0 12px rgba(255,209,102,.55))}}
+@keyframes blink{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<canvas id="bg"></canvas>
 <main>
-<h1>Defeat Anime <span>RNG</span> Stats Calculator</h1>
-<p class="sub">Enter a unit's base stats, pick its accessories, and see its final damage and DPS.</p>
+<h1>DAR <span>RNG</span> Stats Calculator</h1>
+<p class="sub">Enter a unit's base stats, pick its mutation and accessories, and see its final damage and DPS.</p>
 
 <div class="grid">
   <section>
@@ -52,6 +76,9 @@ td:not(:first-child),th:not(:first-child){text-align:right;font-variant-numeric:
       <div><label for="cc">Crit chance (%)</label><input id="cc" type="number" min="0" step="any" value="5"></div>
       <div><label for="cd">Crit damage (%)</label><input id="cd" type="number" min="0" step="any" value="50"></div>
     </div>
+    <label for="mut">Mutation</label>
+    <select id="mut"></select>
+    <div id="mutinfo" class="note" style="margin-top:6px"></div>
   </section>
 
   <section>
@@ -65,12 +92,13 @@ td:not(:first-child),th:not(:first-child){text-align:right;font-variant-numeric:
       <div><b id="rDps">0</b><small>DPS (may be slightly inaccurate, the game rounds the numbers)</small></div>
       <div><b id="rCrit">0</b><small>DPS with average crits</small></div>
       <div><b id="rAvg">0</b><small>Average damage per hit</small></div>
-      <div><b id="rGain">0%</b><small>DPS vs. no accessories</small></div>
+      <div><b id="rGain">0%</b><small>DPS vs. no mutation/accessories</small></div>
     </div>
     <table>
       <thead><tr><th>Stat</th><th>Base</th><th>Final</th></tr></thead>
       <tbody id="tbl"></tbody>
     </table>
+    <p class="note">The final DPS does not include the unit's passives or synergy.</p>
   </section>
 </div>
 </main>
@@ -78,6 +106,16 @@ td:not(:first-child),th:not(:first-child){text-align:right;font-variant-numeric:
 <script>
 const MAIN = {none:"None", critDmg:"Crit Damage", cdr:"Cooldown Reduction", dmgBuff:"Damage Buff"};
 const SUB  = {none:"None", critChance:"Crit Chance", abilityCdr:"Ability CD Reduction", dotBuff:"DOT Damage Buff"};
+// Mutation data: dmg = damage multiplier, as = attack speed %, abCdr = ability CDR %, cc = crit chance %, cd = crit damage %
+const MUTATIONS = {
+  already: {name:"None (already mutated, like Genius)", dmg:1, as:0, abCdr:0, cc:0, cd:0, note:"The unit's stats already include its mutation, so no extra boost is added."},
+  angelic: {name:"Angelic", dmg:2.5, as:10, abCdr:0,  cc:0,  cd:0},
+  seraph:  {name:"Seraph",  dmg:3,   as:15, abCdr:0,  cc:0,  cd:0},
+  genius:  {name:"Genius",  dmg:3,   as:0,  abCdr:0,  cc:15, cd:25},
+  blossom: {name:"Blossom", dmg:2.5, as:0,  abCdr:0,  cc:10, cd:15},
+  astral:  {name:"Astral",  dmg:2.5, as:0,  abCdr:10, cc:0,  cd:0},
+  honored: {name:"Honored", dmg:3,   as:0,  abCdr:25, cc:0,  cd:0}
+};
 const SLOTS = 2;
 const SLOT_NAMES = ["Top accessory","Bottom accessory"];
 const $ = id => document.getElementById(id);
@@ -86,6 +124,7 @@ function opts(obj){return Object.entries(obj).map(([k,v])=>`<option value="${k}"
 function stars(){return [0,1,2,3].map(n=>`<option value="${n}">${n?n+" Star"+(n>1?"s ("+n*5+"%)":" (5%)"):"-"}</option>`).join("")}
 
 // Build UI
+$("mut").innerHTML = Object.entries(MUTATIONS).map(([k,m])=>`<option value="${k}">${m.name}</option>`).join("");
 let html = "";
 for(let i=0;i<SLOTS;i++){
   html += `<div class="acc"><h3>${SLOT_NAMES[i]}</h3>
@@ -128,6 +167,7 @@ function calc(){
   $("dmg").style.borderColor = isNaN(parsed) ? "var(--accent)" : "";
   const baseDmg = isNaN(parsed) ? 0 : parsed, baseSpa = +$("spa").value||0.01;
   const baseCc = +$("cc").value||0, baseCd = +$("cd").value||0;
+  const mut = MUTATIONS[$("mut").value];
   const mode = "bonus"; // crit damage % is a bonus: 50% = crits hit x1.5
 
   // Sum accessories
@@ -138,21 +178,21 @@ function calc(){
     if(s!=="none") t[s]+=ss*5;
   }
 
-  const finalDmg = baseDmg*(1+t.dmgBuff/100);
+  const finalDmg = baseDmg*(1+t.dmgBuff/100)*mut.dmg;
   const totalCdr = Math.min(t.cdr,90);
-  const finalSpa = baseSpa*(1-totalCdr/100);
-  const finalCc = Math.min(baseCc+t.critChance,100);
-  const finalCd = baseCd+t.critDmg;
-  const abilityCdr = t.abilityCdr;
+  const finalSpa = baseSpa*(1-totalCdr/100)/(1+mut.as/100);
+  const finalCc = Math.min(baseCc+t.critChance+mut.cc,100);
+  const finalCd = baseCd+t.critDmg+mut.cd;
+  const abilityCdr = t.abilityCdr+mut.abCdr;
 
   const base = computeDps(baseDmg,baseSpa,baseCc,baseCd,mode);
   const fin  = computeDps(finalDmg,finalSpa,finalCc,finalCd,mode);
 
-  $("rDps").textContent = fmtBig(fin.dps);
-  $("rAvg").textContent = fmtBig(fin.avg);
-  $("rCrit").textContent = fmtBig(fin.critDps);
+  tween("rDps",fin.dps,fmtBig);
+  tween("rAvg",fin.avg,fmtBig);
+  tween("rCrit",fin.critDps,fmtBig);
   const gain = base.dps>0 ? (fin.dps/base.dps-1)*100 : 0;
-  $("rGain").textContent = (gain>=0?"+":"")+fmt(gain,1)+"%";
+  tween("rGain",gain,g=>(g>=0?"+":"")+fmt(g,1)+"%");
 
   const rows = [
     ["Damage", fmtBig(baseDmg), fmtBig(finalDmg)],
@@ -166,8 +206,40 @@ function calc(){
     ["DOT Damage Buff", "0%", fmt(t.dotBuff)+"%"]
   ];
   $("tbl").innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("");
-
+  const bits = [];
+  if(mut.dmg!==1) bits.push(`x${mut.dmg} damage`);
+  if(mut.as) bits.push(`+${mut.as}% attack speed`);
+  if(mut.abCdr) bits.push(`+${mut.abCdr}% ability CDR`);
+  if(mut.cc) bits.push(`+${mut.cc}% crit chance`);
+  if(mut.cd) bits.push(`+${mut.cd}% crit damage`);
+  $("mutinfo").textContent = mut.note || (bits.length ? bits.join(", ") : "No boost.");
 }
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Count-up animation for result numbers
+const cur = {};
+function tween(id,to,f){
+  const el=$(id), from=cur[id]||0; cur[id]=to; cancelAnimationFrame(el._r);
+  if(reduce){el.textContent=f(to);return}
+  const t0=performance.now();
+  const step=now=>{const k=Math.min((now-t0)/500,1),e=1-Math.pow(1-k,3);el.textContent=f(from+(to-from)*e);if(k<1)el._r=requestAnimationFrame(step)};
+  el._r=requestAnimationFrame(step);
+}
+// Floating glow particles
+const cv=$("bg"),cx=cv.getContext("2d");let W,H;
+const size=()=>{W=cv.width=innerWidth;H=cv.height=innerHeight};size();addEventListener("resize",size);
+const cols=["255,77,141","255,209,102","77,225,255"];
+const P=Array.from({length:70},(_,i)=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2.5+.8,v:Math.random()*.5+.15,d:Math.random()*2-1,c:cols[i%3],p:Math.random()*6.28}));
+function draw(){
+  cx.clearRect(0,0,W,H);
+  for(const q of P){
+    q.y-=q.v;q.x+=Math.sin(q.p+=.01)*.4+q.d*.1;
+    if(q.y<-10){q.y=H+10;q.x=Math.random()*W}
+    cx.beginPath();cx.fillStyle=`rgba(${q.c},.75)`;cx.shadowBlur=12;cx.shadowColor=`rgb(${q.c})`;cx.arc(q.x,q.y,q.r,0,6.283);cx.fill();
+  }
+  requestAnimationFrame(draw);
+}
+if(!reduce) draw();
 
 document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",calc));
 calc();
