@@ -32,6 +32,14 @@ input,select{width:100%;padding:9px 11px;background:rgba(255,255,255,.05);color:
 input:hover,select:hover{border-color:var(--accent)}
 input:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(77,225,255,.25),0 0 18px rgba(77,225,255,.35);background:rgba(255,255,255,.08)}
 option{background:#1a1432;color:var(--text)}
+.combo{position:relative}
+.menu{position:absolute;left:0;right:0;top:calc(100% + 4px);max-height:220px;overflow-y:auto;background:#1a1432;border:1px solid var(--cyan);border-radius:8px;z-index:20;box-shadow:0 12px 30px rgba(0,0,0,.55)}
+.menu[hidden]{display:none}
+.menu div{padding:9px 12px;cursor:pointer}
+.menu div:hover{background:rgba(255,77,141,.28)}
+section:focus-within{position:relative;z-index:5}
+.chk{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text)}
+.chk input{width:auto;accent-color:var(--accent)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .acc{border-top:1px dashed var(--line);margin-top:14px;padding-top:6px}
 .acc h3{font-size:.95rem;margin:8px 0 0;color:var(--accent2)}
@@ -68,6 +76,8 @@ tbody tr:hover td{background:rgba(255,255,255,.07)}
 <div class="grid">
   <section>
     <h2>Unit</h2>
+    <label for="unit">Unit (type to search, or leave empty and enter your own stats)</label>
+    <div class="combo"><input id="unit" autocomplete="off" placeholder="Search or scroll through units..."><div id="unitMenu" class="menu" hidden></div></div>
     <label for="dmg">Damage (you can use k, m, 1.5k or 2m)</label>
     <input id="dmg" type="text" inputmode="text" autocomplete="off" value="1k" placeholder="e.g. 1.5k, 2m">
     <label for="spa">SPA (cooldown, seconds)</label>
@@ -75,6 +85,14 @@ tbody tr:hover td{background:rgba(255,255,255,.07)}
     <div class="row">
       <div><label for="cc">Crit chance (%)</label><input id="cc" type="number" min="0" step="any" value="5"></div>
       <div><label for="cd">Crit damage (%)</label><input id="cd" type="number" min="0" step="any" value="50"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="hasdot"> This unit has a DOT</label>
+    <div id="dotFields" style="display:none">
+    <div class="row">
+      <div><label for="dotp">Tick damage (% of unit damage)</label><input id="dotp" type="number" min="0" step="any" value="0"></div>
+      <div><label for="dott">Number of ticks</label><input id="dott" type="number" min="0" step="1" value="0"></div>
+    </div>
+    <div class="note" style="margin-top:6px">The DOT Damage Buff from accessories is applied automatically.</div>
     </div>
     <label for="mut">Mutation</label>
     <select id="mut"></select>
@@ -91,6 +109,7 @@ tbody tr:hover td{background:rgba(255,255,255,.07)}
     <div class="big">
       <div><b id="rDps">0</b><small>DPS (may be slightly inaccurate, the game rounds the numbers)</small></div>
       <div><b id="rCrit">0</b><small>DPS with average crits</small></div>
+      <div id="dotBox" style="display:none"><b id="rDot">0</b><small>DPS including DOT (if it is applied every attack)</small></div>
       <div><b id="rAvg">0</b><small>Average damage per hit</small></div>
       <div><b id="rGain">0%</b><small>DPS vs. no mutation/accessories</small></div>
     </div>
@@ -98,7 +117,20 @@ tbody tr:hover td{background:rgba(255,255,255,.07)}
       <thead><tr><th>Stat</th><th>Base</th><th>Final</th></tr></thead>
       <tbody id="tbl"></tbody>
     </table>
-    <p class="note">The final DPS does not include the unit's passives or synergy.</p>
+    <p class="note">The final DPS does not include the unit's passives or synergy (except DOT, if you fill it in).</p>
+  </section>
+
+  <section class="result" id="extraBox" style="display:none">
+    <h2 id="exTitle">Synergy &amp; 3★</h2>
+    <div class="big" id="exBig">
+      <div><b id="exBoss">0</b><small id="exBossL"></small></div>
+      <div id="exNonBox"><b id="exNon">0</b><small id="exNonL"></small></div>
+    </div>
+    <table id="exTable">
+      <thead><tr><th id="exH0">Scenario (per enemy hit)</th><th id="exH1">Boss</th><th id="exH2">Non-boss</th></tr></thead>
+      <tbody id="exTbl"></tbody>
+    </table>
+    <p class="note" id="exNote"></p>
   </section>
 </div>
 </main>
@@ -116,6 +148,169 @@ const MUTATIONS = {
   astral:  {name:"Astral",  dmg:2.5, as:0,  abCdr:10, cc:0,  cd:0},
   honored: {name:"Honored", dmg:3,   as:0,  abCdr:25, cc:0,  cd:0}
 };
+// UNIT LIST: add one line per unit, copy the format below.
+// dmg can use k/m (like "2.8m"), spa is in seconds, cc and cd are percentages.
+const UNITS = [
+  {name:"Junwo (Monarch) / Jin-Woo", dmg:"900k", spa:6, cc:10, cd:25,
+    extra:{title:"Beru & Igris summons (Dungeon Expert)", summons:2,
+    note:"Junwo's DMG is the HP of Beru and Igris, and his SPA is the cooldown of their summons. This assumes each of them has HP equal to his DMG and turns all of it into damage once per summon, so one cast deals 2 x his DMG. Not included because the game gives no numbers: the free Shadow Soldiers from kills and the Dungeon Expert synergy (3 unique Leveling units: at 10 Shadows his next ability also summons 3 bonus Shadow Soldiers)."}},
+  {name:"White Reaper (Arima)", dmg:"2.2m", spa:8, cc:10, cd:25, dotp:20, dott:2,
+    extra:{title:"Synergy & 3★ (The Doves)", boss:2.5, nonBoss:0.85, alternate:true, bossDotMult:1.5,
+    note:"Assumes the unit's two weapons are its normal attacks and swap every 30s (so each is active half the time without synergy). Uses the same no-crit DPS as above, with your accessories, and the 3★ Bleed from the DOT section. Synergy needs 3 unique Ghoul Investigators on your team."}},
+  {name:"Elf Mage (Frieren)", dmg:"440k", spa:4, cc:10, cd:25,
+    extra:{title:"Synergy (10 Year Journey)", synMult:1.66,
+    note:"Synergy needs 3 unique Elf Journey units on your team. The two Judradjim bolts each deal 33% of her damage (and ignore shields), so each attack deals 166% in total. The Hero bond (Zoltraak, 400% damage when Hero casts Hero's Strike) is not included because it depends on how often Hero casts."}}, // Bleed: 2 ticks of Hunger% (20 Hunger = 20%), change the tick % if your Hunger is different
+  {name:"Aizen (Aiben)", dmg:"720k", spa:6, cc:10, cd:25},
+  {name:"Ipachi (Itachi)", dmg:"1.4m", spa:7, cc:10, cd:25, dotp:4, dott:1, // Amaterasu at 3★: one tick per attack, 4% of his damage per tick
+    extra:{title:"Synergy & 3★ (Tsukuyomi, Amaterasu)",
+    note:"Amaterasu ticks once per attack, dealing 4% of his damage at 3★ (2% without it), and the DOT Damage Buff from accessories is applied. Tsukuyomi assumes one Itachi attacks every SPA, needs 5 hits, and has a 25s cooldown per enemy, so it applies every 5 hits or 25s, whichever is longer. Each application freezes for 2s and adds +25% damage taken, and that bonus counts for all damage the enemy takes, not just his. More Itachis share the hit counter and apply it faster. Needs 3 unique Cursed Clan units. His ability (enemies walk back for 5s) deals no damage.",
+    calc:(c)=>{
+      const buff=1+c.dotBuff/100;
+      const d2=c.finalDmg*0.02*buff, d4=c.finalDmg*0.04*buff;
+      const cyc=Math.max(5*c.finalSpa,25), up=2/cyc;
+      const rows=[
+        ["Amaterasu without 3★ (2% per attack)", fmtBig(d2), fmtBig(d2/c.finalSpa)],
+        ["Amaterasu with 3★ (4% per attack)", fmtBig(d4), fmtBig(d4/c.finalSpa)],
+        ["Tsukuyomi: time between applications on one enemy", fmt(cyc,1)+"s", "-"],
+        ["Tsukuyomi: share of time the enemy takes +25% damage", fmt(up*100,1)+"%", "+"+fmt(up*25,2)+"% on average"]
+      ];
+      const bigs=[
+        {v:d4/c.finalSpa, f:fmtBig, l:"Amaterasu DPS with 3★"},
+        {v:up*25, f:v=>"+"+fmt(v,2)+"%", l:"Average extra damage taken (Tsukuyomi)"}
+      ];
+      return {h:["Effect","Value (per attack / application)","DPS / average"], rows, bigs};
+    }}},
+  {name:"Explosion (Megumin)", dmg:"1m", spa:8, cc:10, cd:25,
+    extra:{title:"Explosion & synergy (Adventurer's Party)",
+    note:"Assumes the explosion is her normal attack on her SPA cooldown (the channel time isn't included) and hits every enemy for 5x her damage, and that her own Explosive Boost passive also applies to her. Synergy needs 3 Adventurer's Party members and raises the boost from 10% to 20%. The same boost applies to all your other magical units.",
+    calc:(c)=>{
+      const per=c.finalDmg*5, rows=[
+        ["Explosion without the boost", fmtBig(per), fmtBig(per/c.finalSpa)],
+        ["With Explosive Boost (+10% DMG)", fmtBig(per*1.1), fmtBig(per*1.1/c.finalSpa)],
+        ["With synergy (+20% DMG)", fmtBig(per*1.2), fmtBig(per*1.2/c.finalSpa)]
+      ];
+      return {h:["Scenario (per enemy hit)","Damage per cast","DPS"], rows, bigs:[
+        {v:per*1.2/c.finalSpa, f:fmtBig, l:"Explosion DPS with synergy"},
+        {v:20, f:v=>"+"+fmt(v,0)+"%", l:"DMG boost for your magical units (synergy)"}
+      ]};
+    }}},
+  {name:"Mirumu (Rimiru)", dmg:"780k", spa:6, cc:10, cd:25,
+    extra:{title:"Rain debuff",
+    note:"Assumes the rain is cast every SPA (so SPA is its cooldown) and a new cast refreshes the 10s duration. Her ability deals no damage itself, but enemies in the rain take 20% more damage from every unit on your team, so the benefit grows with your team's DPS. If her cooldown is longer than 10s (for example from a long SPA), the rain will not always be active.",
+    calc:(c)=>{
+      const up=Math.min(1,10/c.finalSpa), avg=20*up;
+      const rows=[
+        ["Rain duration", "10s", "-"],
+        ["Cooldown (her SPA)", fmt(c.finalSpa,2)+"s", "-"],
+        ["Time enemies are in the rain", fmt(up*100,1)+"%", "-"],
+        ["Extra damage taken while in the rain", "+20%", "+"+fmt(avg,1)+"% on average"]
+      ];
+      return {h:["Effect","Value","Average"], rows, bigs:[
+        {v:avg, f:v=>"+"+fmt(v,1)+"%", l:"Average extra damage enemies take"}
+      ]};
+    }}},
+  {name:"Fire Captain (Yamamoto)", dmg:"800k", spa:4, cc:10, cd:25, dotp:10, dott:0, hasDot:true, // Burn: 10% per tick, number of ticks not known so type it in the DOT box
+    extra:{title:"Fire Bankai & burn",
+    note:"While the flames are on (60s), his attack speed is 20% lower (SPA / 0.8) and enemies he hits burn, so his passive adds +50% damage to them. This assumes enemies are burning on every hit. Burn's number of ticks isn't in the description, so type the ticks per attack in the DOT box (10% per tick is already filled in) to add Burn to the numbers. The ability's cooldown isn't shown, so how often the flames are up isn't included. Not included either: the 3★ (revived enemies apply 3 stacks of burn) and the True Bankai synergy (3 Soul Reapers: enemies assisted to death revive at 50% HP), since the game gives no numbers for them.",
+    calc:(c)=>{
+      const buff=1+c.dotBuff/100, spaF=c.finalSpa/0.8;
+      const normal=c.finalDmg/c.finalSpa, flames=c.finalDmg/spaF, boosted=flames*1.5;
+      const burn = c.dotT>0 ? c.finalDmg*0.10*c.dotT*buff/spaF : 0;
+      const rows=[
+        ["Normal attacks (no flames)", fmtBig(c.finalDmg), fmtBig(normal)],
+        ["Flames on: attack speed -20% (SPA "+fmt(spaF,2)+"s)", fmtBig(c.finalDmg), fmtBig(flames)],
+        ["Flames on + 50% damage to burning enemies", fmtBig(c.finalDmg*1.5), fmtBig(boosted)]
+      ];
+      if(c.dotT>0) rows.push(["+ Burn (10% per tick x "+c.dotT+")", fmtBig(c.finalDmg*0.10*c.dotT*buff), fmtBig(boosted+burn)]);
+      else rows.push(["Burn: type its ticks per attack in the DOT box", "-", "-"]);
+      return {h:["Scenario","Damage per attack","DPS"], rows, bigs:[
+        {v:boosted+burn, f:fmtBig, l:c.dotT>0 ? "DPS with flames, +50% and Burn" : "DPS with flames and +50%"},
+        {v:(boosted+burn)/normal*100-100, f:v=>(v>=0?"+":"")+fmt(v,1)+"%", l:"Change vs. normal attacks"}
+      ]};
+    }}},
+  {name:"Bambie (Bambietta)", dmg:"475k", spa:5, cc:10, cd:25,
+    extra:{title:"5th-attack passive",
+    note:"Every 5th attack also hits 3 extra random enemies for full damage, so 5 attacks deal 8 full hits in total (5 on her target + 3 extra), which is 1.6x her normal damage when enemies are spread out. The extra hits need other enemies to be in range. Her ability (pink reishi bombs) isn't included because the game gives no damage number for it.",
+    calc:(c)=>{
+      const d=c.finalDmg, t5=5*c.finalSpa;
+      const rows=[
+        ["Her target only (5 attacks)", fmtBig(d*5), fmtBig(d*5/t5)],
+        ["3 extra random enemies (every 5th attack)", fmtBig(d*3), fmtBig(d*3/t5)],
+        ["Total across all enemies", fmtBig(d*8), fmtBig(d*8/t5)]
+      ];
+      return {h:["Scenario","Damage per 5 attacks","DPS"], rows, bigs:[
+        {v:d*8/t5, f:fmtBig, l:"Total DPS across all enemies"},
+        {v:60, f:v=>"+"+fmt(v,0)+"%", l:"Extra damage from the passive"}
+      ]};
+    }}},
+  {name:"Brawler (Broly)", dmg:"386.9k", spa:6.3, cc:10, cd:25,
+    extra:{title:"Limit Break synergy",
+    note:"Every 25s a random Super Warrior gets Limit Break for 10s: +50% DMG and +15% attack speed (SPA / 1.15), which is 1.725x his DPS while it lasts. How often it lands on Broly depends on how many Super Warriors you have, so the average is shown for 3, 4 and 5 Super Warriors (each one is chosen equally often). Needs at least 3 Super Warriors. His ability (his laser becomes a piercing lane) has no damage number, so it isn't included.",
+    calc:(c)=>{
+      const base=c.finalDmg/c.finalSpa, lb=c.finalDmg*1.5/(c.finalSpa/1.15), gain=lb-base;
+      const avg=n=>base+gain*(10/25)/n;
+      const rows=[
+        ["Normal attacks", fmtBig(base), "-"],
+        ["During Limit Break (10s)", fmtBig(lb), "+"+fmt((lb/base-1)*100,1)+"%"]
+      ];
+      [3,4,5].forEach(n=>rows.push(["Average with "+n+" Super Warriors", fmtBig(avg(n)), "+"+fmt((avg(n)/base-1)*100,1)+"%"]));
+      return {h:["Scenario","DPS","Change"], rows, bigs:[
+        {v:lb, f:fmtBig, l:"DPS during Limit Break"},
+        {v:avg(3), f:fmtBig, l:"Average DPS with 3 Super Warriors"}
+      ]};
+    }}},
+  {name:"Choi (Choi Jong-In)", dmg:"546k", spa:7, cc:10, cd:25,
+    extra:{title:"Flame Annihilation & synergy (Dungeon Expert)",
+    note:"The flame spear hits every enemy on the map for his normal damage. With 3 unique Leveling units, each enemy also burns for 3 ticks of 60% of his damage. This assumes the burn lands once per enemy on every cast, and the DOT Damage Buff from accessories is applied to it. Numbers are per enemy hit.",
+    calc:(c)=>{
+      const buff=1+c.dotBuff/100, spear=c.finalDmg, burn=c.finalDmg*0.6*3*buff, tot=spear+burn;
+      const rows=[
+        ["Flame spear (normal damage)", fmtBig(spear), fmtBig(spear/c.finalSpa)],
+        ["Burn from synergy (3 ticks x 60%)", fmtBig(burn), fmtBig(burn/c.finalSpa)],
+        ["Total with synergy", fmtBig(tot), fmtBig(tot/c.finalSpa)]
+      ];
+      return {h:["Scenario (per enemy hit)","Damage per cast","DPS"], rows, bigs:[
+        {v:tot/c.finalSpa, f:fmtBig, l:"DPS per enemy with synergy"},
+        {v:burn/spear*100, f:v=>"+"+fmt(v,0)+"%", l:"Extra damage from the burn"}
+      ]};
+    }}},
+  {name:"Slayer (Berserk) / Guts", dmg:"1.6m", spa:6, cc:0, cd:25,
+    extra:{title:"Rage ability & 3★",
+    note:"Numbers are damage per enemy. Rage goes up by 1 for every attack, assist or takedown (cap 100), and the description doesn't say how often the ability is used, so the ability is shown as damage per cast at 0, 50 and 100 Rage instead of DPS. Burn and Bleed ticks use the DOT Damage Buff from accessories. The Hemorrhage on bosses at 100 Rage isn't included (no number given). The 3★ makes enemies within 50 studs take 10% more Physical damage, which also helps other Physical units near him. His attacks also hit every enemy within 15 studs of the target.",
+    calc:(c)=>{
+      const d=c.finalDmg, b=1+c.dotBuff/100, k=1.1;
+      const r0=d, r50=d*(1.5+1.5*b), r100=d*(2+4*b);
+      const rows=[
+        ["Basic attack (per hit, DPS in the main result)", fmtBig(d), fmtBig(d*k)],
+        ["Ability at 0 Rage (100% DMG)", fmtBig(r0), fmtBig(r0*k)],
+        ["Ability at 50 Rage (150% + Burn and Bleed)", fmtBig(r50), fmtBig(r50*k)],
+        ["Ability at 100 Rage (200% + Burn and Bleed)", fmtBig(r100), fmtBig(r100*k)]
+      ];
+      return {h:["Scenario (per enemy)","Damage","With 3★ (+10% Physical)"], rows, bigs:[
+        {v:r100*k, f:fmtBig, l:"Ability damage per enemy at 100 Rage (with 3★)"},
+        {v:d*k/c.finalSpa, f:fmtBig, l:"Basic attack DPS with 3★"}
+      ]};
+    }}},
+  {name:"Griffon (Dark) / Griffith (Femto)", dmg:"1.2m", spa:5, cc:10, cd:25,
+    extra:{title:"God's Hand (max buffs)",
+    note:"Best case: the ability takes the buffs from your allies and gives him up to +150% each. This uses +150% DMG (x2.5) and +150% attack speed (SPA / 2.5), with no crits like the main DPS, so real numbers are lower if your allies have fewer buffs. For 25s afterwards his attack cooldown is 2x longer, and your allies' attack cooldowns are 50% longer (x0.67 DPS) while the ability is active. How often he casts it isn't in the description. Not included: crit buffs, Zodd (HP = 2x his DMG; when it dies, one enemy takes +10% damage for 25s, 25s cooldown), the God's Brand resurrection, and the 3★ slow.",
+    calc:(c)=>{
+      const d=c.finalDmg, base=d/c.finalSpa, on=d*2.5/(c.finalSpa/2.5), off=base*0.5, avg=(on+off)/2;
+      const rows=[
+        ["Normal attacks", fmtBig(base), "x1"],
+        ["God's Hand active (25s, max buffs)", fmtBig(on), "x"+fmt(on/base,2)],
+        ["After it ends (25s, 2x cooldown)", fmtBig(off), "x"+fmt(off/base,2)],
+        ["Average over those 50s", fmtBig(avg), "x"+fmt(avg/base,2)],
+        ["Your allies' DPS while it is active", "-", "x0.67"],
+        ["Zodd's HP (2x his DMG)", fmtBig(d*2), "-"]
+      ];
+      return {h:["Scenario","DPS / value","Change"], rows, bigs:[
+        {v:on, f:fmtBig, l:"DPS during God's Hand (max buffs)"},
+        {v:avg, f:fmtBig, l:"Average DPS over the 50s window"}
+      ]};
+    }}},
+  // {name:"Unit name", dmg:"1.5m", spa:3, cc:10, cd:50},  (optional DOT: dotp:20 = tick damage in % of damage, dott:2 = number of ticks)
+];
 const SLOTS = 2;
 const SLOT_NAMES = ["Top accessory","Bottom accessory"];
 const $ = id => document.getElementById(id);
@@ -202,10 +397,73 @@ function calc(){
     ["Avg damage per hit", fmtBig(base.avg), fmtBig(fin.avg)],
     ["DPS (in-game, no crits)", fmtBig(base.dps), `<span class="gain">${fmtBig(fin.dps)}</span>`],
     ["DPS with average crits", fmtBig(base.critDps), fmtBig(fin.critDps)],
-    ["Ability CD Reduction", "0%", fmt(abilityCdr)+"%"],
-    ["DOT Damage Buff", "0%", fmt(t.dotBuff)+"%"]
+    ["Ability CD Reduction", "0%", fmt(abilityCdr)+"%"]
   ];
+  const dotP=+$("dotp").value||0, dotT=+$("dott").value||0;
+  const hasDot = $("hasdot").checked && dotP>0 && dotT>0;
+  $("dotFields").style.display = $("hasdot").checked ? "" : "none";
+  $("dotBox").style.display = hasDot ? "" : "none";
+  if(hasDot){
+    const dotPer = finalDmg*dotP/100*dotT*(1+t.dotBuff/100), baseDotPer = baseDmg*dotP/100*dotT;
+    const dotDps = dotPer/finalSpa, baseDotDps = baseDotPer/baseSpa;
+    tween("rDot", fin.dps+dotDps, fmtBig);
+    rows.push(["DOT Damage Buff", "0%", fmt(t.dotBuff)+"%"],
+              ["DOT damage per application", fmtBig(baseDotPer), fmtBig(dotPer)],
+              ["DOT DPS (applied every attack)", fmtBig(baseDotDps), fmtBig(dotDps)],
+              ["DPS including DOT", fmtBig(base.dps+baseDotDps), `<span class="gain">${fmtBig(fin.dps+dotDps)}</span>`]);
+  }
   $("tbl").innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("");
+  // Unit-specific synergy / 3-star container
+  const ex = curUnit && curUnit.extra;
+  $("extraBox").style.display = ex ? "" : "none";
+  if(ex){
+    $("exTitle").textContent = ex.title || "Synergy & 3★";
+    $("exNote").textContent = ex.reason || ex.note || "";
+    $("exNote").style.cssText = ex.reason ? "font-size:.95rem;color:var(--text);margin-top:0" : "";
+    $("exBig").style.display = ex.reason ? "none" : "";
+    $("exTable").style.display = ex.reason ? "none" : "";
+    if(!ex.reason){
+    const hit = fin.dps;
+    let r, big1, big2 = null, l1, l2 = "", f1 = fmtBig, f2 = fmtBig;
+    if(ex.summons){
+      // summons: each summon has HP = unit damage and converts it into damage once per cooldown
+      const per = finalDmg, perDps = finalDmg/finalSpa, n = ex.summons;
+      $("exH0").textContent="Summon"; $("exH1").textContent="Damage per cast"; $("exH2").textContent="DPS";
+      r = [["Beru", fmtBig(per), fmtBig(perDps)], ["Igris", fmtBig(per), fmtBig(perDps)],
+           ["Beru + Igris", fmtBig(per*n), fmtBig(perDps*n)]];
+      big1 = perDps*n; l1 = "DPS from Beru + Igris";
+    } else if(ex.calc){
+      // unit-specific calculation function
+      const o = ex.calc({finalDmg, finalSpa, dotP, dotT, dotBuff:t.dotBuff});
+      $("exH0").textContent=o.h[0]; $("exH1").textContent=o.h[1]; $("exH2").textContent=o.h[2];
+      r = o.rows;
+      big1 = o.bigs[0].v; l1 = o.bigs[0].l; f1 = o.bigs[0].f;
+      if(o.bigs[1]){ big2 = o.bigs[1].v; l2 = o.bigs[1].l; f2 = o.bigs[1].f; }
+    } else if(ex.synMult){
+      // simple synergy: every attack deals extra damage
+      $("exH0").textContent="Scenario"; $("exH1").textContent="DPS"; $("exH2").textContent="Change";
+      r = [["No synergy", fmtBig(hit), "-"], ["With synergy", fmtBig(hit*ex.synMult), "+"+fmt((ex.synMult-1)*100,1)+"%"]];
+      big1 = hit*ex.synMult; l1 = "DPS with synergy";
+    } else {
+      $("exH0").textContent="Scenario (per enemy hit)"; $("exH1").textContent="Boss"; $("exH2").textContent="Non-boss";
+      const bleed = hasDot ? finalDmg*dotP/100*dotT*(1+t.dotBuff/100)/finalSpa : 0;
+      const bleedBoss = bleed*(ex.bossDotMult||1), half = ex.alternate ? 0.5 : 1;
+      const noB = hit*ex.boss*half, noN = hit*ex.nonBoss*half, synB = hit*ex.boss, synN = hit*ex.nonBoss;
+      const rows2 = [["No synergy", noB, noN]];
+      if(hasDot) rows2.push(["No synergy + 3★ Bleed", noB+bleedBoss, noN+bleed]);
+      rows2.push(["With synergy", synB, synN]);
+      if(hasDot) rows2.push(["With synergy + 3★ Bleed", synB+bleedBoss, synN+bleed]);
+      const last = rows2[rows2.length-1];
+      r = rows2.map(x=>[x[0], fmtBig(x[1]), fmtBig(x[2])]);
+      const tag = hasDot ? "with synergy + 3★ Bleed" : "with synergy";
+      big1 = last[1]; big2 = last[2]; l1 = "Boss DPS "+tag; l2 = "Non-boss DPS "+tag;
+    }
+    $("exNonBox").style.display = big2===null ? "none" : "";
+    $("exBossL").textContent = l1; $("exNonL").textContent = l2;
+    tween("exBoss", big1, f1); if(big2!==null) tween("exNon", big2, f2);
+    $("exTbl").innerHTML = r.map((x,k)=>{const g=k===r.length-1;return `<tr><td>${x[0]}</td><td>${g?`<span class="gain">${x[1]}</span>`:x[1]}</td><td>${g?`<span class="gain">${x[2]}</span>`:x[2]}</td></tr>`}).join("");
+    }
+  }
   const bits = [];
   if(mut.dmg!==1) bits.push(`x${mut.dmg} damage`);
   if(mut.as) bits.push(`+${mut.as}% attack speed`);
@@ -215,6 +473,35 @@ function calc(){
   $("mutinfo").textContent = mut.note || (bits.length ? bits.join(", ") : "No boost.");
 }
 
+// Unit picker: the list always shows every unit (scrollable), typing filters it
+const menu = $("unitMenu");
+let curUnit = null;
+function applyUnit(u){
+  curUnit = u;
+  $("dmg").value=u.dmg; $("spa").value=u.spa; $("cc").value=u.cc; $("cd").value=u.cd;
+  $("dotp").value=u.dotp||0; $("dott").value=u.dott||0; $("hasdot").checked=!!(u.hasDot||(u.dotp&&u.dott));
+}
+function showMenu(filter){
+  const q=(filter||"").trim().toLowerCase();
+  const list=UNITS.filter(u=>u.name.toLowerCase().includes(q));
+  menu.innerHTML = list.length ? list.map((u,i)=>`<div data-i="${UNITS.indexOf(u)}">${u.name}</div>`).join("") : `<div style="cursor:default;color:var(--mute)">No units found</div>`;
+  menu.hidden=false;
+}
+$("unit").addEventListener("focus",()=>{$("unit").select();showMenu("")});
+$("unit").addEventListener("click",()=>{if(menu.hidden)showMenu("")});
+$("unit").addEventListener("input",()=>{
+  showMenu($("unit").value);
+  const u=UNITS.find(x=>x.name.toLowerCase()===$("unit").value.trim().toLowerCase());
+  if(u) applyUnit(u); else curUnit = null;
+});
+menu.addEventListener("mousedown",e=>{
+  const d=e.target.closest("[data-i]"); if(!d) return;
+  e.preventDefault();
+  const u=UNITS[+d.dataset.i];
+  $("unit").value=u.name; applyUnit(u); menu.hidden=true; calc();
+});
+document.addEventListener("mousedown",e=>{if(!e.target.closest(".combo"))menu.hidden=true});
+$("unit").addEventListener("keydown",e=>{if(e.key==="Escape"||e.key==="Tab")menu.hidden=true});
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 // Count-up animation for result numbers
 const cur = {};
